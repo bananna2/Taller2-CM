@@ -194,6 +194,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
             // Move the camera to the new location
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+
         }
     }
 
