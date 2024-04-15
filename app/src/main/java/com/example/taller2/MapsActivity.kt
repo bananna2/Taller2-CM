@@ -26,6 +26,12 @@ import com.google.android.gms.maps.model.MarkerOptions
 import com.example.taller2.databinding.ActivityMapsBinding
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.MapStyleOptions
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -37,6 +43,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var currentLocation: Location
     private lateinit var locationManager: LocationManager
     private var geocoder: Geocoder? = null
+    private lateinit var lastRecordedLocation: Location
+    private val MOVEMENT_THRESHOLD_METERS = 30
 
     companion object {
         private const val REQUEST_CODE_LOCATION = 1
@@ -46,8 +54,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         private const val lowerLeftLongitude = -74.1366813
         private const val upperRightLatitude = 4.8166886
         private const val upperRightLongitude = -74.0143209
+
     }
 
+    @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMapsBinding.inflate(layoutInflater)
@@ -74,9 +84,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
 
+
+
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
 
+        // Inicializar lastRecordedLocation con la última ubicación conocida
+        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        lastRecordedLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER) ?: Location("default")
 
 
         binding.etSearch.setOnEditorActionListener { _, actionId, _ ->
@@ -133,10 +148,50 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     }
 
+    // Función para registrar un nuevo registro en el archivo JSON
+    private fun recordLocationInJSON(location: Location) {
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        val currentDateAndTime: String = sdf.format(Date())
+
+        val jsonArray = JSONArray()
+        val jsonObject = JSONObject().apply {
+            put("latitude", location.latitude)
+            put("longitude", location.longitude)
+            put("datetime", currentDateAndTime)
+        }
+        jsonArray.put(jsonObject)
+
+        try {
+            val jsonFile = File(filesDir, "location_records.json")
+            if (!jsonFile.exists()) {
+                jsonFile.createNewFile()
+            }
+            jsonFile.appendText(jsonArray.toString() + "\n")
+
+            Log.i("MAPS", "New location recorded in JSON: $jsonObject")
+        } catch (e: Exception) {
+            Log.e("MAPS", "Error recording location in JSON: ${e.message}")
+        }
+    }
+
+
+    @SuppressLint("MissingPermission")
     override fun onResume() {
         super.onResume()
         mSensorManager.registerListener(mLightSensorEventListener, mLightSensor, SensorManager.SENSOR_DELAY_NORMAL)
+
+        if (::mMap.isInitialized) {
+            // Cargar la última ubicación registrada al iniciar la aplicación
+            if (isLocationPermissionGranted()) {
+                val lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                if (lastKnownLocation != null) {
+                    lastRecordedLocation = lastKnownLocation
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(lastKnownLocation.latitude, lastKnownLocation.longitude), 15f))
+                }
+            }
+        }
     }
+
 
     override fun onPause() {
         super.onPause()
@@ -152,15 +207,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Habilitar la capa de mi ubicación en el mapa
         enableLocation()
-
-        // Mover la cámara a la ubicación actual del usuario si está disponible
-        if (isLocationPermissionGranted()) {
-            val lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            if (lastKnownLocation != null) {
-                currentLocation = lastKnownLocation
-                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(lastKnownLocation.latitude, lastKnownLocation.longitude), 15f))
-            }
-        }
 
         // Agregar el listener para el clic largo
         mMap.setOnMapLongClickListener { latLng ->
@@ -194,8 +240,25 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
             // Move the camera to the new location
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+
+            // Actualizar el marcador y registrar la nueva ubicación si el movimiento es mayor al umbral
+            val distanceMoved = location.distanceTo(lastRecordedLocation)
+            if (distanceMoved >= MOVEMENT_THRESHOLD_METERS) {
+                recordLocationInJSON(location)
+                lastRecordedLocation = location
+            }
+        }
+
+        // Mover la cámara a la ubicación actual del usuario si está disponible
+        if (isLocationPermissionGranted()) {
+            val lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            if (lastKnownLocation != null) {
+                currentLocation = lastKnownLocation
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(lastKnownLocation.latitude, lastKnownLocation.longitude), 15f))
+            }
         }
     }
+
 
     private fun getCurrentLocation(): Location {
         return if (ContextCompat.checkSelfPermission(
