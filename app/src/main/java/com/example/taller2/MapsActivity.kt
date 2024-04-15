@@ -183,10 +183,17 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap.setOnMyLocationChangeListener { location ->
             currentLocation = location
 
-            // Mostrar un marcador en la ubicación actual del usuario
-            mMap.addMarker(MarkerOptions().position(LatLng(location.latitude, location.longitude))
+            // Clear existing markers
+            mMap.clear()
+
+            // Add a marker at the new location
+            val latLng = LatLng(location.latitude, location.longitude)
+            mMap.addMarker(MarkerOptions().position(latLng)
                 .title("Mi ubicación")
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)))
+
+            // Move the camera to the new location
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
         }
     }
 
