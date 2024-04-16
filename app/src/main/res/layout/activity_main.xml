@@ -11,8 +11,9 @@
     <ImageButton
         android:id="@+id/imageButton1"
         android:layout_width="match_parent"
+        android:layout_weight="0.25"
         android:layout_height="wrap_content"
-        android:layout_marginTop="220dp"
+        android:layout_marginTop="0dp"
         app:backgroundTint="@color/white"
         app:srcCompat="@drawable/ic_launcher_contact"
 
@@ -21,6 +22,7 @@
     <ImageButton
      android:id="@+id/imageButton2"
      android:layout_width="match_parent"
+     android:layout_weight="0.25"
      android:layout_height="wrap_content"
      android:src="@drawable/ic_launcher_camera"
      app:backgroundTint="@color/white"
@@ -29,6 +31,7 @@
 <ImageButton
          android:id="@+id/imageButton3"
         android:layout_width="match_parent"
+        android:layout_weight="0.25"
         android:layout_height="wrap_content"
         android:src="@drawable/ic_launcher_mapicon"
         app:backgroundTint="@color/white"
